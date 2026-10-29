@@ -9,6 +9,18 @@ tied to a pyobfus major version; pin `pyobfus-version` if you need that.
 
 ## [Unreleased]
 
+### Documentation
+
+- Clarify Core PR #98 name-verification availability: merged but not in PyPI
+  0.7.0, opt-in through existing build `extra-args` when a supporting builder
+  is installed; `verify-syntax` and Action inputs/tags remain unchanged.
+
+- README links to pyobfus's table of what each build mode renames. Directory
+  builds rename module-level names and, since pyobfus 0.6.0, function-local
+  variables (confirmed against pyobfus 0.6.0).
+- README notes pyobfus 0.7.0 (2026-10-12): module attribute access is
+  renamed in directory builds, the output changes, and the mapping warning.
+
 ## [1.0.1] - 2026-09-10
 
 ### Fixed
