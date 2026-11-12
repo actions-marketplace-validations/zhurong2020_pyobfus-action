@@ -125,6 +125,40 @@ The mapping file is your de-obfuscation key. If you produce one with
 the shipped artifact, and out of any public workflow artifact (pyobfus 0.7.0
 warns when `--save-mapping` points inside the output directory).
 
+### Pro builds in CI (Core 0.12.0+)
+
+Action **v1.1.0** adds the `license-key` input for Core 0.12.0+. Supply a
+GitHub Actions secret:
+
+```yaml
+- uses: zhurong2020/pyobfus-action@v1
+  with:
+    source: src/
+    mode: build
+    output: dist/
+    preset: commercial
+    pyobfus-version: "0.12.0"
+    license-key: ${{ secrets.PYOBFUS_LICENSE_KEY }}
+```
+
+An explicit non-empty input takes precedence over an inherited
+`PYOBFUS_LICENSE_KEY`; an empty input preserves the inherited variable.
+The key is passed only in the CLI subprocess environment, never in command
+arguments, reports, outputs or the job summary. Store it as a secret and
+never supply it through `extra-args`.
+
+Core verifies CI licensing online without consuming a device slot or writing
+registration state. Invalid keys or unavailable verification reject a Pro
+build, including when `fail-on: never` is selected. Community builds require
+no license. Earlier Core versions do not implement this CI activation
+mechanism; use Core 0.12.0 or later.
+
+The calling step's `env: PYOBFUS_LICENSE_KEY` remains supported with Core
+0.12.0+; an empty `license-key` input preserves it.
+Fork pull requests normally cannot access secrets; reserve licensed builds
+for trusted code and refs. `offline` controls dependency lookups, not CI
+license verification. See the [CI licensing guide](https://pyobfus.readthedocs.io/en/latest/CI_LICENSING/).
+
 ### Build output is not a self-contained deployment
 
 This action invokes the pyobfus **builder**; it does not vendor Python package
@@ -132,7 +166,7 @@ dependencies into `output`. Community output normally has no pyobfus runtime
 dependency. Pro artifacts that use runtime-backed protection import the
 separately published `pyobfus-runtime` package on the target machine.
 
-The current builder declares `pyobfus-runtime>=0.1,<1`, so the default
+The current builder declares `pyobfus-runtime>=0.1.1,<1`, so the default
 `install: true` step installs a compatible runtime on the build runner. That
 does not place the package inside `dist/`. Declare/install the same runtime
 requirement in the environment or application package that will execute the
@@ -156,6 +190,7 @@ not as evidence that the dependency was bundled.
 | `json-file` | `pyobfus-result.json` | Where to save the JSON result. |
 | `config` | | Path to a `pyobfus.yaml`. Omit for auto-discovery. |
 | `preset` | | `fastapi`, `django`, `flask`, `pydantic`, `click`, `sqlalchemy`, `ml`, … |
+| `license-key` | | Pro CI license from a secret (Core 0.12.0+); empty preserves an inherited `PYOBFUS_LICENSE_KEY`. Available since Action v1.1.0. |
 | `offline` | `false` | Skip the PyPI lookups behind the dependency advisory. Recommended on hermetic runners. |
 | `verify-syntax` | `false` | `mode: build` only. Compile generated files in memory. |
 | `provenance-manifest` | | `mode: build` only. Path for a local JSON provenance manifest. |
@@ -201,10 +236,17 @@ Not a badge, things you can check yourself:
 - It is a **composite action**, not a container. `action.yml` and
   `scripts/run_pyobfus.py` are the entire implementation — about 300 readable
   lines, no bundled binaries and no build step between source and what runs.
-- **No network access beyond PyPI.** The action installs pyobfus and runs it.
-  Set `offline: true` and pyobfus makes no network calls at all.
-- **Nothing is sent anywhere.** Your source, findings and mappings stay on the
-  runner. There is no telemetry.
+- **Network behavior is explicit.** The action installs the selected builder
+  from the configured package index. In check mode, `offline: true` skips the
+  CLI's PyPI dependency-name lookup. Pro licence verification or an explicitly
+  requested trial may still contact the pyobfus licence server; see the
+  [Core network guide](https://pyobfus.readthedocs.io/en/latest/NETWORK_BEHAVIOR/).
+- **Source and mapping files stay on the runner.** The action does not upload
+  them or send telemetry. It does write a findings table (up to 50 rows:
+  severity, category, `file:line` and message) to the GitHub job summary,
+  which GitHub keeps with the workflow run, and the SARIF file reaches Code
+  Scanning only if a later step uploads it. The CLI may send dependency names
+  or licence data in the documented cases above.
 - Third-party actions in this repo's own CI are **pinned to commit SHAs**.
 - The CI here uses the action against real fixtures, including a test asserting
   that `fail-on: never` still fails on a bad path — the exact behaviour the
